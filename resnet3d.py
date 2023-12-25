@@ -7,13 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1tgUSrHVwRsEc4507NPx7RIFG2AHIshcl
 
 Early Alzhimer's Detection
----
-
-About the project
-
-i have already converted the OASIS MRI images from .img format into .nifti format using FSL and uploaded the files into github
-now cloaning the files from github to get the mri images in the nifti forat from our model
-"""
+""""
 
 !git clone https://github.com/blackpearl006/OASIS_nifti_Part_1
 !git clone https://github.com/blackpearl006/OASIS_nifti_Part_2
@@ -23,7 +17,6 @@ now cloaning the files from github to get the mri images in the nifti forat from
 !git clone https://github.com/blackpearl006/OASIS_nifti_Part_6
 !git clone https://github.com/blackpearl006/OASIS_nifti_Part_7
 
-"""### Importing necessary libraries"""
 
 import os
 import torch
@@ -33,9 +26,6 @@ import matplotlib.pyplot as plt
 import nibabel as nib
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
-
-"""The librarires related to pytorch"""
-
 from torch.utils.data import random_split
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
@@ -44,59 +34,11 @@ from torchvision.transforms import ToTensor
 from torch.utils.data import WeightedRandomSampler
 import torch.optim as optim
 
-"""Reading the additional info csv file for classify the MRI images into diffrent classes based on MMSE
-
-Excerpt from the Facts sheet along with the dataset
-Clinical
-Mini-Mental State Examination (MMSE) (Rubin et al., 1998), Clinical Dementia Rating (CDR; 0=
-nondemented; 0.5 - very mild dementia; 1 = mild dementia; 2 = moderate dementia) (Morris, 1993). All
-participants with dementia (CDR >0) were diagnosed with probable AD.
-
-based in this we classify the MRI images into 2 classes
-
-Class 0 : Non Demented Class 1 : Probable AD
-
-"""
 
 metadata = pd.read_csv('/content/kaggle.csv')
 metadata.head(5)
 
-"""## Class Overview
 
-The `CustomDataset` class is a fundamental component of our analysis pipeline. Let's break down its key components and methods:
-
-### Input and Output
-
-- **Input**: The class takes in dataset links, organized in parts. Additionally, a CSV file path containing class labels is provided, along with an optional transformation function.
-- **Output**: The class yields normalized MRI images in tensor format, along with their corresponding labels.
-
-### Method 1: `__getitem__()`
-
-This method is the heart of data retrieval and preprocessing:
-
-1. **Load MRI**: Using the file path provided, the method employs the `nibabel` library to load a brain MRI, resulting in a `numpy.ndarray`.
-
-2. **Preprocessing**: The loaded MRI data is passed through the `preprocess_data()` function to normalize it.
-
-3. **Tensor Conversion**: The normalized data is converted into a `torch.float32` tensor.
-
-4. **Label Assignment**: If available, the label associated with the image is retrieved from the loaded labels dictionary.
-
-5. **Return**: The preprocessed tensor and its label are returned.
-
-### Method 2: `get_file_paths()`
-
-This method locates MRI image files in the provided dataset links. It ensures that exactly 100 images of each label are included, promoting a balanced dataset.
-
-### Method 3: `load_class_labels()`
-
-This method reads class labels from a CSV file. It creates a dictionary mapping patient IDs to their corresponding labels based on Clinical Dementia Rating (CDR) values.
-
-### Method 4: `preprocess_data()`
-
-This method normalizes the input numpy array, representing the MRI image. The normalization involves calculating mean and standard deviation, and then scaling the data.
-
-"""
 
 class CustomDataset():
     def __init__(self, repo_paths, csv_path, num_samples = 200, transform = None):
@@ -258,218 +200,7 @@ print(f'Length of Training Dataset : {len(train_dl)*4}')
 print(f'Length of Validation Dataset : {len(val_dl)*4}')
 print(f'batch Size : {4}, With higher batch size we cannot train our model on GPU')
 
-"""
->
-> nn.Conv3d expects the input to have size [batch_size, channels, depth, height, width]. The first convolution expects 3 channels, but with your input having size [100, 16, 16, 16, 3], that would be 16 channels.
->
-> Assuming that your data is given as [batch_size, depth, height, width, channels], you need to swap the dimensions around, which can be done with torch.Tensor.permute:
->
->  From: [batch_size, depth, height, width, channels]
->  To: [batch_size, channels, depth, height, width]
-> input = input.permute(0, 4, 1, 2, 3)
->
-"""
 
-import torch.nn as nn
-
-class CNN_baseline(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-        # Convolution layer for input size (128 x 256 x 256)
-        self.network = nn.Sequential(
-            nn.Conv3d(1, 8, kernel_size=3, padding=1),
-            nn.BatchNorm3d(8),
-            nn.ReLU(),
-            nn.MaxPool3d(4),
-
-            nn.Flatten(),
-            nn.Linear(8 * 32 * 64 * 64, 1024),
-            nn.BatchNorm1d(1024),
-            nn.ReLU(),
-            nn.Linear(1024, 512),
-            nn.BatchNorm1d(512),
-            nn.ReLU(),
-            nn.Linear(512, 4),
-            nn.Softmax(dim=1)
-        )
-
-    def forward(self,x):
-        return self.network(x)
-
-# model = CNN_baseline()
-
-import torch.nn as nn
-
-class CNN_network(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-        # Convolution layer for input size (128 x 256 x 256)
-        self.network = nn.Sequential(
-            nn.Conv3d(1, 32, kernel_size=3, padding=1),
-            nn.BatchNorm3d(32),
-            nn.ReLU(),
-            nn.Conv3d(32, 32, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm3d(32),
-            nn.ReLU(),
-            nn.MaxPool3d(2), # 32 x 64 x 128 x 128
-
-            nn.Conv3d(32, 64, kernel_size=3, padding=1),
-            nn.BatchNorm3d(64),
-            nn.ReLU(),
-            nn.Conv3d(64, 64, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm3d(64),
-            nn.ReLU(),
-            nn.MaxPool3d(2), # 64 x 32 x 64 x 64
-
-            nn.Conv3d(64, 128, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm3d(128),
-            nn.ReLU(),
-            nn.Conv3d(128, 128, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm3d(128),
-            nn.ReLU(),
-            nn.MaxPool3d(2), # 128 x 16 x 32 x 32
-
-            nn.Conv3d(128, 256, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm3d(256),
-            nn.ReLU(),
-            nn.Conv3d(256, 256, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm3d(256),
-            nn.ReLU(),
-            nn.MaxPool3d(2), # 256 x 8 x 16 x 16
-
-            nn.Conv3d(256, 512, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm3d(512),
-            nn.ReLU(),
-            nn.Conv3d(512, 512, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm3d(512),
-            nn.ReLU(),
-            nn.MaxPool3d(2), #512 x 4 x 8 x 8
-
-
-            nn.Flatten(),
-            nn.Linear(512 * 4 * 8 * 8, 128),
-            nn.BatchNorm1d(128),
-            nn.ReLU(),
-            nn.Linear(128, 64),
-            nn.BatchNorm1d(64),
-            nn.ReLU(),
-            nn.Linear(64, 1)
-#             nn.Sigmoid()
-        )
-
-    def forward(self,x):
-        return self.network(x)
-
-# model = CNN_network()
-
-import torch.nn as nn
-
-class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(ConvBlock, self).__init__()
-        self.conv1 = nn.Conv3d(in_channels, out_channels, kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm3d(out_channels)
-        self.relu1 = nn.ReLU()
-        self.conv2 = nn.Conv3d(out_channels, out_channels, kernel_size=3, padding=1)
-        self.bn2 = nn.BatchNorm3d(out_channels)
-        self.relu2 = nn.ReLU()
-
-    def forward(self, x):
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu1(out)
-        out = self.conv2(out)
-        out = self.bn2(out)
-        out = self.relu2(out)
-        return out
-
-# The contracting path follows the typical architecture of a convolutional network.
-# It consists of the repeated application of two 3×3 convolutions (unpadded convolutions),
-# each followed by a ReLU and a 2×2 max pooling operation with stride 2 for downsampling.
-# At each downsampling step we double the number of feature channels.
-
-class EncoderBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(EncoderBlock, self).__init__()
-        self.conv1 = ConvBlock(in_channels, out_channels)
-#         self.bn1 = nn.BatchNorm3d(out_channels)
-        self.maxpool = nn.MaxPool3d(2)
-
-    def forward(self, x):
-        conv_out = self.conv1(x)
-        out = self.maxpool(conv_out)
-        return conv_out, out
-
-# Every step in the expansive path consists of an upsampling of the feature map
-# followed by a 2×2 convolution (“up-convolution”) that halves the number of feature channels,
-# A concatenation with the correspondingly cropped feature map from the contracting path,
-# and two 3×3 convolutions, each followed by a ReLU
-
-class DecoderBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(DecoderBlock, self).__init__()
-        self.up = nn.ConvTranspose3d(in_channels, out_channels, kernel_size=2, padding=0)
-        self.conv = ConvBlock(out_channels+out_channels, out_channels)
-
-
-    def forward(self, x, skip):
-        conv_up = self.up(x)
-        print("conv_up shape:", conv_up.shape)
-        print("skip shape:", skip.shape)
-        out = torch.cat([conv_up, skip], dim=1)
-        out = self.conv(out)
-        return out
-
-class Classifier(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(Classifier, self).__init__()
-        self.conv = nn.Conv3d(in_channels, out_channels, kernel_size = 1, padding = 0)
-
-    def forward(self, x):
-        out = self.conv(x)
-        return out
-
-
-class UNet(nn.Module):
-    def __init__(self):
-        super(UNet, self).__init__()
-
-        self.encode_block1 = EncoderBlock(1, 64)
-        self.encode_block2 = EncoderBlock(64, 128)
-        self.encode_block3 = EncoderBlock(128, 256)
-#         self.encode_block4 = EncoderBlock(256, 512)
-
-        self.bottleneck = ConvBlock(256, 512)
-
-#         self.decode_block1 = DecoderBlock(1024, 512)
-        self.decode_block2 = DecoderBlock(512, 256)
-        self.decode_block3 = DecoderBlock(256, 128)
-        self.decode_block4 = DecoderBlock(128, 64)
-
-        self.output = Classifier(64, 1)
-
-
-    def forward(self, x):
-        s1, x1, = self.encode_block1(x)
-        s2, x2 = self.encode_block2(x1)
-        s3, x3 = self.encode_block3(x2)
-
-        x7 = self.decode_block2(x6, s3)
-        x8 = self.decode_block3(x7, s2)
-        x9 = self.decode_block4(x8, s1)
-
-        out = self.output(x9)
-
-        return out
-
-# model = UNet()
-
-import torch
-import torch.nn as nn
-
-# Basic Block for 3D ResNet-18
 class BasicBlock3D(nn.Module):
     expansion = 1
 
@@ -501,7 +232,7 @@ class BasicBlock3D(nn.Module):
 
         return out
 
-# 3D ResNet-18 model
+
 class ResNet18_3D(nn.Module):
     def __init__(self, num_classes=1):
         super(ResNet18_3D, self).__init__()
@@ -554,11 +285,11 @@ class ResNet18_3D(nn.Module):
 
         return x
 
-# Instantiate the 3D ResNet-18 model
+
 model = ResNet18_3D()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# device = "cpu"
+
 model = model.to(device)
 
 model = DataParallel(model)
@@ -570,17 +301,13 @@ inverse_class_weights
 
 inverse_class_weights = inverse_class_weights.to(device)
 criterion =  nn.BCEWithLogitsLoss(pos_weight = inverse_class_weights )
-# criterion =  nn.BCEWithLogitsLoss()
 
-# Define the optimizer
 optimizer = optim.Adam(model.parameters(), lr=0.01)
 
-# Define the number of epochs
 num_epochs = 10
 
 print(f'criterion =  nn.BCELoss(), optimizer = optim.Adam(model.parameters()), num_epochs = 25')
 
-# Training loop
 train_losses = []
 val_losses = []
 train_accu = []
@@ -611,7 +338,7 @@ for epoch in range(num_epochs):
 
     train_accuracy = 100 * train_correct / train_total
 
-    # Validation phase
+
     model.eval()
     val_loss = 0.0
     val_correct = 0
@@ -622,11 +349,11 @@ for epoch in range(num_epochs):
             inputs = inputs.to(device)
             labels = labels.to(device)
 
-            # Forward pass
+
             outputs = model(inputs)
             loss = criterion(outputs, labels)
 
-            # Compute validation accuracy
+
             predicted = (outputs >= 0.5)
             val_total += labels.size(0)
             val_correct += (predicted == labels).sum().item()
@@ -639,7 +366,7 @@ for epoch in range(num_epochs):
     val_losses.append(val_loss)
     train_accu.append(train_accuracy)
     val_accu.append(val_accuracy)
-    # Print epoch statistics
+
     print(f"Epoch [{epoch+1}/{num_epochs}]: "
           f"Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.2f}%, "
           f"Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.2f}%")
@@ -657,15 +384,6 @@ train_losses
 
 epochs = list(range(1, len(train_losses) + 1))
 
-# plt.plot(epochs, train_losses, marker='o')
-# plt.plot(epochs, val_losses, marker='o')
-# plt.title('Traning and Validation Losses Curve')
-# plt.xlabel('Epoch')
-# plt.ylabel('Loss')
-# plt.ylim(0, 100)
-# plt.grid(False)
-# plt.gcf().set_facecolor('white')
-# plt.show()
 
 plt.plot(epochs, train_losses, marker='o')
 plt.title('Training Loss Curve')
@@ -706,8 +424,7 @@ with torch.no_grad():
         labels = labels.to(device)
 
         outputs = model(inputs)
-        predicted = (outputs >= 0.5).int()  # Convert to int (0 or 1)
-
+        predicted = (outputs >= 0.5).int()  
         conf_matrix += confusion_matrix(labels.cpu(), predicted.cpu(), labels=[0, 1])
 
 
@@ -718,10 +435,6 @@ FN = conf_matrix[1, 0]
 precision = TP / (TP + FP)
 recall = TP / (TP + FN)
 
-# plt.text(0.5, -0.1, f'Precision: {precision:.4f}', horizontalalignment='center', verticalalignment='center',
-#          transform=plt.gca().transAxes)
-# plt.text(0.5, -0.2, f'Recall: {recall:.4f}', horizontalalignment='center', verticalalignment='center',
-#          transform=plt.gca().transAxes)
 
 plt.figure(figsize=(8, 6))
 sns.set(font_scale=1.2)
